@@ -526,7 +526,7 @@ func testReadInputs(t *testing.T, input io.Reader) []Msg {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		inputErr = readInputs(ctx, msgsC, input)
+		inputErr = readAnsiInputs(ctx, msgsC, input)
 		msgsC <- nil
 	}()
 
