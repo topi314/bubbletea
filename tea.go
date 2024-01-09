@@ -21,11 +21,10 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/containerd/console"
-	isatty "github.com/mattn/go-isatty"
 	"github.com/muesli/cancelreader"
 	"github.com/muesli/termenv"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/term"
 )
 
 // ErrProgramKilled is returned by [Program.Run] when the program got killed.
@@ -147,10 +146,12 @@ type Program struct {
 	renderer      renderer
 
 	// where to read inputs from, this will usually be os.Stdin.
-	input        io.Reader
+	input io.Reader
+	// tty is null if input is not a TTY.
+	tty          *os.File
+	ttyState     *term.State
 	cancelReader cancelreader.CancelReader
 	readLoopDone chan struct{}
-	console      console.Console
 
 	// was the altscreen active before releasing the terminal?
 	altScreenWasActive bool
@@ -256,7 +257,7 @@ func (p *Program) handleSignals() chan struct{} {
 func (p *Program) handleResize() chan struct{} {
 	ch := make(chan struct{})
 
-	if f, ok := p.output.TTY().(*os.File); ok && isatty.IsTerminal(f.Fd()) {
+	if f, ok := p.output.TTY().(*os.File); ok && term.IsTerminal(int(f.Fd())) {
 		// Get the initial terminal size and send it to the program.
 		go p.checkResize()
 
@@ -448,7 +449,7 @@ func (p *Program) Run() (Model, error) {
 		if !isFile {
 			break
 		}
-		if isatty.IsTerminal(f.Fd()) {
+		if term.IsTerminal(int(f.Fd())) {
 			break
 		}
 
